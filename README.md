@@ -223,3 +223,162 @@ public class MemberServiceTest {
 협력 관계를 그대로 재사용할 수 있다.
 
 ## 주문과 할인 도메인 개발
+* 주문 모델
+```
+package hello.core.order;
+
+public class Order {
+
+    private Long memberId;
+    private String itemName;
+    private int itemPrice;
+    private int discountPrice;
+
+    public Order(Long memberId, String itemName, int itemPrice, int discountPrice) {
+        this.memberId = memberId;
+        this.itemName = itemName;
+        this.itemPrice = itemPrice;
+        this.discountPrice = discountPrice;
+    }
+
+    public int calculatePrice() {
+        return itemPrice - discountPrice;
+    }
+
+    public Long getMemberId() {
+        return memberId;
+    }
+
+    public void setMemberId(Long memberId) {
+        this.memberId = memberId;
+    }
+
+    public String getItemName() {
+        return itemName;
+    }
+
+    public void setItemName(String itemName) {
+        this.itemName = itemName;
+    }
+
+    public int getItemPrice() {
+        return itemPrice;
+    }
+
+    public void setItemPrice(int itemPrice) {
+        this.itemPrice = itemPrice;
+    }
+
+    public int getDiscountPrice() {
+        return discountPrice;
+    }
+
+    public void setDiscountPrice(int discountPrice) {
+        this.discountPrice = discountPrice;
+    }
+
+    @Override
+    public String toString() {
+        return "Order{" +
+                "memberId=" + memberId +
+                ", itemName='" + itemName + '\'' +
+                ", itemPrice=" + itemPrice +
+                ", discountPrice=" + discountPrice +
+                '}';
+    }
+}
+
+```
+
+* 주문 서비스
+```
+package hello.core.order;
+
+public interface OrderService {
+    
+    Order createOrder(Long memberId, String itemName, int itemPlace);
+}
+
+----------------------------------------------------------------------
+package hello.core.order;
+
+import hello.core.discount.DiscountPolicy;
+import hello.core.discount.FixDiscountPolicy;
+import hello.core.member.Member;
+import hello.core.member.MemberRepository;
+import hello.core.member.MemoryMemberRepository;
+
+public class OrderServiceImpl implements OrderService {
+    
+    private final MemberRepository memberRepository = new MemoryMemberRepository();
+    private final DiscountPolicy discountPolicy = new FixDiscountPolicy();
+    
+    @Override
+    public Order createOrder(Long memberId, String itemName, int itemPlace) {
+        
+        Member member = memberRepository.findById(memberId);
+        int discountPrice = discountPolicy.discount(member, itemPlace);
+        
+        return new Order(memberId, itemName, itemPlace, discountPrice);
+    }
+}
+
+```
+
+* 할인 정책 비니지스
+```
+package hello.core.discount;
+
+import hello.core.member.Member;
+
+public interface DiscountPolicy {
+
+    int discount(Member member, int price);
+}
+------------------------------------------------------------------------
+package hello.core.discount;
+
+import hello.core.member.Grade;
+import hello.core.member.Member;
+
+public class FixDiscountPolicy implements DiscountPolicy {
+
+    private int discountFicAmount = 1000;
+
+    @Override
+    public int discount(Member member, int price) {
+        if (member.getGrade() == Grade.VIP) {
+            return discountFicAmount;
+        } else {
+            return 0;
+        }
+    }
+}
+```
+
+## 주문과 할인 도메인 실행과 테스트
+```
+package hello.core.order;
+
+import hello.core.discount.DiscountPolicy;
+import hello.core.discount.FixDiscountPolicy;
+import hello.core.member.Member;
+import hello.core.member.MemberRepository;
+import hello.core.member.MemoryMemberRepository;
+
+public class OrderServiceImpl implements OrderService {
+
+    private final MemberRepository memberRepository = new MemoryMemberRepository();
+    private final DiscountPolicy discountPolicy = new FixDiscountPolicy();
+
+    @Override
+    public Order createOrder(Long memberId, String itemName, int itemPlace) {
+
+        Member member = memberRepository.findById(memberId);
+        int discountPrice = discountPolicy.discount(member, itemPlace);
+
+        return new Order(memberId, itemName, itemPlace, discountPrice);
+    }
+}
+
+```
