@@ -382,3 +382,67 @@ public class OrderServiceImpl implements OrderService {
 }
 
 ```
+
+# 3. 스프링 핵심 원리 이해2 = 객체 지향 원리 적용
+
+## 새로운 할인 정책 개발
+* VIP는 퍼센트형태로 할인하는 로직 추가
+```
+package hello.core.discount;
+
+import hello.core.member.Grade;
+import hello.core.member.Member;
+
+public class RateDiscountPolicy implements DiscountPolicy {
+
+    private int discountPercent = 10;
+
+    @Override
+    public int discount(Member member, int price) {
+        if (member.getGrade() == Grade.VIP) {
+            return price * discountPercent / 100;
+        } else {
+            return 0;
+        }
+    }
+}
+
+```
+
+* 테스트 추가
+```
+package hello.core.discount;
+
+import hello.core.member.Grade;
+import hello.core.member.Member;
+import org.junit.jupiter.api.Assertions;
+import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
+
+class RateDiscountPolicyTest {
+
+    RateDiscountPolicy discountPolicy = new RateDiscountPolicy();
+
+    @Test
+    @DisplayName("VIP는 10% 할인이 적용되어야 한다.")
+    void vip_o() {
+        //given
+        Member member = new Member(1L, "memberVIP", Grade.VIP);
+        //when
+        int discount = discountPolicy.discount(member, 10000);
+        //then
+        Assertions.assertEquals(1000, discount);
+    }
+
+    @Test
+    @DisplayName("VIP가 아니면 할인이 적용되지 않아야 한다.")
+    void vip_x() {
+        //given
+        Member member = new Member(2L, "memberBASIC", Grade.BASIC);
+        //when
+        int discount = discountPolicy.discount(member, 10000);
+        //then
+        Assertions.assertEquals(0, discount);
+    }
+}
+```
