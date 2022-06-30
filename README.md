@@ -467,3 +467,66 @@ class RateDiscountPolicyTest {
 문제점들을 잘 생각해보고 해결해나갈 방법을 생각해 보고 
 다음시간에 답을 구해 보자!!
 
+## 잠깐!!
+애자일 소프트웨어 개발 선언문을 읽고 가자!
+![img_1.png](img_1.png)
+우리는 소프트웨어를 개발하고, 또 다른 사람의 개발을 도와주면서 소프트웨어 개발의 더 나은 방법들을 찾아가고 있다.
+이작업을 통해 우리는 다음을 가지 있게 여기게 되었습니다.
+
+공정과 도구보다 "개인과 상호작용" 을 포괄적인 문서보다 "작동하는 소프트웨어"를 꼐약 협상보다 "고객과의 협력"을 계획을 따르기보다 "변화에 대응하기"를
+가지 있게 여긴다. 이 말은, 왼쪽에 있는 것들도 가치가 있지만, 우리는 오른쪽에 있는것들에 더 높은 가치를 둔다는 것이다.
+
+## 관심사의 분리
+* AppConfig를 통해서 관심사를 확실하게 분리했다.
+* 배역, 배우를 생각해보자
+* AppConfig는 공연 기획자다.
+* AppConfig는 구체 클래스를 선택한다. 배역에 맞는 담당 배우를 선택한다, 애플리케이션이 어떻게 동작해야 할지 전체 구성을 책임진다.
+* 이제 각 배우들은 담당 기능을 실행하는 책임만 지면 된다.
+* orderServiceImpl 은 기능을 실행하는 책임만 지면 된다.
+
+
+## AppCopnfig 리팩토링
+현재 중복이 있고, 역활에 따른 구련이 잘 안보인다.
+리팩터링 후
+```
+public class AppConfig {
+
+    public MemberService memberService() {
+        return new MemberServiceImpl(memberRepository());
+    }
+
+    private MemoryMemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+
+    public OrderService orderService() {
+        return new OrderServiceImpl(memberRepository(), discountPolicy());
+    }
+
+    private FixDiscountPolicy discountPolicy() {
+        return new FixDiscountPolicy();
+    }
+}
+```
+
+
+## 새로운 구조와 할인 정책 적용
+* 처음으로 돌아가서 정책 할인 정책을 정률% 할인 정책으로 변경해보자
+* FixDiscountPolicy -> RateDiscountPolicy
+* 어떤 부분만 변경하면 되겠는가?
+
+* AppConfig의 등장으로 애플리케이션이 크게 사용 영역과, 객체를 생성하고 구성하는 영역으로 분리되었다.
+
+## 좋은 객체 지향 설계의 5가지 원칙의 적용
+여기서 3가지 SRP, DIP, OCP 적용
+
+SRP 단일 책임 원칙
+한 클래스는 하나의 책임만 가져야 한다.
+
+DIP 의존관계 역전 원칙
+프로그래머는 “추상화에 의존해야지, 구체화에 의존하면 안된다.
+
+OCP
+소프트웨어 요소는 확장에는 열려 있으나 변경에는 닫여있어야 한다.
+AppConfig가 의존관계를 FixDiscountPolicy > RateDiscountPolicy 로 변경해서 클라이언트 코드에 주입하므로 클라이언트 코드는 변경하지 않아도 됨
+소프트웨어 요소를 새롭게 확장해도 사용 영역의 변경은 닫혀있다!!!
