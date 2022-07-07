@@ -530,3 +530,296 @@ OCP
 소프트웨어 요소는 확장에는 열려 있으나 변경에는 닫여있어야 한다.
 AppConfig가 의존관계를 FixDiscountPolicy > RateDiscountPolicy 로 변경해서 클라이언트 코드에 주입하므로 클라이언트 코드는 변경하지 않아도 됨
 소프트웨어 요소를 새롭게 확장해도 사용 영역의 변경은 닫혀있다!!!
+
+## IoC, DI, 그리고 컨테이너
+
+### 제어의 역전
+* 기존 프로그램은 클라이언트 구현 객체가 스스로 필요한 서버 구현 객체를 생성하고 , 연결하고, 실행했다. 한마디로 구현 객체가 프로그램의 제어 흐름을 스스로 조종했다. 개발자 입장에서는 자연스러운 흐름이다.
+* 반면에 AppConfig가 등장한 이후에 구현 객체는 자신의 로직을 실행하는 역활만 담당한다. 프로그램의 제어 흐름은 이제 AppConfig가 가져단다. 예를 들어서 OrderServiceImple은 필요한 인터페이스들을 호출하지만 어떤 구현 객체들이 실행 될지 모른다.
+* 프로그램에 대한 제어 흐름에 대한 권한은 모두 AppConfig가 가지고 잇다. 심지어 OrderServiceImpl도 AppConfig가 생성한다. 그리고 AppConfig는 OrderServiceImpl이 아닌 OrderService 인터페이스의 다른 구현 객체를 생성하고 실행할 수 도 있다. 그런 사실도 모른채 OrderServiceImpl은 묵묵히 자신의 로직을 실행할 뿐이다.
+* 이렇듯 프로그램의 제어 흐름을 직접 제어하는 것이 아니라 외부에서 관리하는 것을 제어의 역전(IoC)이라 한다.
+
+### 프레임워크 vs 라이브러리
+* 프레임워크가 내가 작성한 코드를 제어하고, 대신 실행하면 그것은 프레임워크가 맞다
+* 반면에 내가 작성한 코드가 직접 제어의 흐름을 담당한다면 그것은 프레임워크가 아니라 라이브러리다
+
+### 의존관계 주입 DI
+* OrderServiceImpl은 DiscountPolicy 인터페이스에 의존한다. 실제 어떤 구현 객체가 사용될지는 모른다.
+* 의존관계는 “정적인 클래스 의존 관계와, 실행 시점에 결정되는 동적인 객체(인스턴스) 의존 관계” 둘을 분리해서 생각해야 한다.
+
+### 정적인 클래스 의존관계
+클래스가 사용하는 import 코드만 보고 의존관계를 쉽게 판단할 수 있다. 정적인 의존관계는 애플리케이션 실행하지 않아도 분석할 수 있다. 클래스 다이어그램을 보자 OrderServiceImpl은 MemberRepository, DiscountPolicy에 의존한다는 것을 알 수 있다.
+그런데 이러한 클래스 의존관계 만으로는 실제 어떤 객체가 OrderServiceImpl에 주입 될 지 알 수 없다 
+![img_2.png](img_2.png)
+
+### 동적인 객체 인스턴스 의존 관계
+애플리케이션 실행 시점에 실제 생성 된 객체 인스턴스의 참조가 연결된 의존관계다.
+
+객체다이어그램  
+![img_3.png](img_3.png)
+
+* 래플리케이션 “실행시점”에 외부에서 실제 구현 객체를 생성하고 클라이언트에 전달해서 클라이언트와 서버의 실제 의존관계가 연결 되는 것을 의존관계 주입이라 한다.
+* 객체 인스턴스를 생성하고, 그 참조값을 전달해서 연결된다.
+* 의존관계 주입을 사용하면 클라이언트 코드를 변경하지 않고, 클라이언트가 호출하는 대상의 타입 인스턴스를 변경할 수 있다.
+* 의존관계 주입을 사용하면 정적인 클래스 의존관계를 변경하지 않고, 동적인 객체 인스턴스 의존관계를 쉽게 변경할 수 있다.
+
+### IoC컨테이너, DI컨테이너
+* AppConfig 처럼 객체를 생성하고 관리하면서 의존관계를 연결해 주는 것을
+* IoC컨테이너 또는 DI컨테이너라 한다.
+* 의존관계 주입에 초점을 맞추어 최근에는 주로 DI 컨테이너라 한다.
+* 또는 어셈블러, 오브젝트 팩토리 등으로 불리기도 한다.
+
+## 스프링빈 사용
+@Configuration과
+각 @Bean을 선언하면 스프링 컨테이너에 등록하게 된다.
+```
+@Configuration
+public class AppConfig {
+
+    @Bean
+    public MemberService memberService() {
+        return new MemberServiceImpl(memberRepository());
+    }
+
+    @Bean
+    public MemoryMemberRepository memberRepository() {
+        return new MemoryMemberRepository();
+    }
+
+    @Bean
+    public OrderService orderService() {
+        return new OrderServiceImpl(memberRepository(), discountPolicy());
+    }
+
+    @Bean
+    public FixDiscountPolicy discountPolicy() {
+        return new FixDiscountPolicy();
+    }
+}
+```
+
+스프링컨테이너는 ApplicationContext에 모두 관리된다.
+ApplicationContext applicationContext = new AnnotationConfigApplicationContext(AppConfig.class);
+
+등록 된 컨피그 클래스를 선언하고
+getBean을 통해서 원하는 객체를 꺼내와서 사용할 수 있다.
+```
+public class MemberApp {
+    public static void main(String[] args) {
+
+//        AppConfig appConfig = new AppConfig();
+//        MemberService memberService = appConfig.memberService();
+        ApplicationContext applicationContext = new AnnotationConfigApplicationContext(AppConfig.class);
+        MemberService memberService = applicationContext.getBean("memberService", MemberService.class);
+        Member member = new Member(1L, "memnerA", Grade.VIP);
+        memberService.join(member);
+
+        Member findMember = memberService.findMember(1L);
+        System.out.println("new member = " + member.getName());
+        System.out.println("find member = " + findMember.getName());
+    }
+}
+```
+![img_4.png](img_4.png)
+![img_5.png](img_5.png)
+
+
+## 등록 된 모든 빈 조회해보기
+```
+public class ApplicationContextInfoTest {
+
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(AppConfig.class);
+
+    @Test
+    @DisplayName("모든 빈 출력하기")
+    void findAllBean() {
+        String[] beanDefinitionNames = ac.getBeanDefinitionNames();
+        Arrays.stream(beanDefinitionNames).forEach(s -> {
+            Object bean = ac.getBean(s);
+            System.out.println("name = " + s + " object = " + bean );
+        });
+    }
+
+    @Test
+    @DisplayName("모든 빈 출력하기")
+    void findApplicationBean() {
+        String[] beanDefinitionNames = ac.getBeanDefinitionNames();
+        Arrays.stream(beanDefinitionNames).forEach(s -> {
+            BeanDefinition beanDefinition = ac.getBeanDefinition(s);
+            if (beanDefinition.getRole() == BeanDefinition.ROLE_APPLICATION) {
+                Object bean = ac.getBean(s);
+                System.out.println("name = " + s + " object = " + bean );
+            }
+        });
+    }
+}
+```
+![img_6.png](img_6.png)
+
+
+## 스프링빈 기본 조회
+test기반으로 알아보자
+```
+public class ApplicationContextBasicFindTest {
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(AppConfig.class);
+
+    @Test
+    @DisplayName("빈 이름으로 조회")
+    void findBeanName() {
+        MemberService memberService = ac.getBean("memberService", MemberService.class);
+        Assertions.assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    @Test
+    @DisplayName("이름 없이 타입으로만 조회")
+    void findBeanType() {
+        MemberService memberService = ac.getBean(MemberService.class);
+        Assertions.assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    @Test
+    @DisplayName("구체 타입으로 조회")
+    void findBeanName2() {
+        MemberServiceImpl memberService = ac.getBean(MemberServiceImpl.class);
+        Assertions.assertThat(memberService).isInstanceOf(MemberServiceImpl.class);
+    }
+
+    @Test
+    @DisplayName("빈 이름으로 조회X")
+    void findBeanNameX() {
+//        MemberService xxxx = ac.getBean("xxxx", MemberService.class);
+        org.junit.jupiter.api.Assertions.assertThrows(NoSuchBeanDefinitionException.class,
+                () -> ac.getBean("xxxx", MemberService.class));
+    }
+}
+```
+
+## 스프링 빈 조회 - 동일한 타입이 둘 이상
+
+```
+public class ApplicationContextBasicSameFindTest {
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(SameBeanConfig.class);
+
+    @Test
+    @DisplayName("타입으로 조회시 같은 타입이 둘 이상 있으면, 중복 오류가 발생한다.")
+    void findBeanTypeDuplicate() {
+//        MemberRepository memberRepository = ac.getBean(MemberRepository.class);
+        Assertions.assertThrows(NoUniqueBeanDefinitionException.class,
+                () -> ac.getBean(MemberRepository.class));
+    }
+
+    @Test
+    @DisplayName("타입으로 조회시 같은 타입이 둘 이상 있으면, 빈 이름을 지정하면 된다.")
+    void findBeanName() {
+        MemberRepository memberRepository = ac.getBean("memberRepository1", MemberRepository.class);
+        org.assertj.core.api.Assertions.assertThat(memberRepository).isInstanceOf(MemberRepository.class);
+//        Assertions.assertThrows(NoUniqueBeanDefinitionException.class,
+//                () -> ac.getBean("memberRepository1", MemberRepository.class));
+    }
+
+    @Test
+    @DisplayName("특정 타입을 모두 조회하기")
+    void findAllBeanType() {
+        Map<String, MemberRepository> beansOfType = ac.getBeansOfType(MemberRepository.class);
+
+        for (String key : beansOfType.keySet()) {
+            System.out.println("key = " + key + " value = " + beansOfType.get(key));
+        }
+        System.out.println("beasOfType = " + beansOfType);
+        org.assertj.core.api.Assertions.assertThat(beansOfType.size()).isEqualTo(2);
+    }
+
+    @Configuration
+    static class SameBeanConfig {
+
+        @Bean
+        public MemberRepository memberRepository1() {
+            return new MemoryMemberRepository();
+        }
+
+        @Bean
+        public MemberRepository memberRepository2() {
+            return new MemoryMemberRepository();
+        }
+    }
+}
+
+```
+
+
+## 스프링 빈 조회 - 상속관계
+
+자식 타입은 다 조회된다.  
+![img_7.png](img_7.png)
+
+```
+public class ApplicationContextExtentsFindTest {
+    AnnotationConfigApplicationContext ac = new AnnotationConfigApplicationContext(TestConfig.class);
+
+
+    @Test
+    @DisplayName("부모 타입으로 조회 시, 자식이 둘 이상있으면, 중복 오류가 발생한다.")
+    void findBeanByParentTypeDuplicate() {
+        Assertions.assertThrows(NoUniqueBeanDefinitionException.class,
+                () -> ac.getBean(DiscountPolicy.class));
+    }
+
+    @Test
+    @DisplayName("부모 타입으로 조회 시, 자식이 둘 이상있으면, 빈 이름을 지정하면 된다.")
+    void findBeanByName() {
+        DiscountPolicy rateDiscountPolicy = ac.getBean("rateDiscountPolicy", DiscountPolicy.class);
+        org.assertj.core.api.Assertions.assertThat(rateDiscountPolicy).isInstanceOf(RateDiscountPolicy.class);
+    }
+
+    @Test
+    @DisplayName("부모 타입으로 조회 시, 자식이 둘 이상있으면, 타입으로 지정하면 된다.")
+    void findBeanByType() {
+        RateDiscountPolicy rateDiscountPolicy = ac.getBean(RateDiscountPolicy.class);
+        org.assertj.core.api.Assertions.assertThat(rateDiscountPolicy).isInstanceOf(RateDiscountPolicy.class);
+    }
+
+    @Test
+    @DisplayName("부모 타입으로 모두 조회하기")
+    void findAllBeanByParentType() {
+        Map<String, DiscountPolicy> beansOfType = ac.getBeansOfType(DiscountPolicy.class);
+
+        for (String key : beansOfType.keySet()) {
+            System.out.println("key = " + key + " value = " + beansOfType.get(key));
+        }
+        System.out.println("beasOfType = " + beansOfType);
+        org.assertj.core.api.Assertions.assertThat(beansOfType.size()).isEqualTo(2);
+    }
+
+    @Test
+    @DisplayName("오브젝트 타입으로 모두 조회하기")
+    void findAllBeanByObjectType() {
+        Map<String, Object> beansOfType = ac.getBeansOfType(Object.class);
+
+        for (String key : beansOfType.keySet()) {
+            System.out.println("key = " + key + " value = " + beansOfType.get(key));
+        }
+        System.out.println("beasOfType = " + beansOfType);
+    }
+
+    @Configuration
+    static class TestConfig {
+
+        @Bean
+        public DiscountPolicy rateDiscountPolicy() {
+            return new RateDiscountPolicy();
+        }
+
+        @Bean
+        public DiscountPolicy fixDiscountPolicy() {
+            return new FixDiscountPolicy();
+        }
+    }
+}
+
+```
+
+## BeanFactory와 ApplicationContext 관계
+![img_8.png](img_8.png)
+![img_9.png](img_9.png)
+
+
