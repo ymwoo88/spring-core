@@ -1001,3 +1001,95 @@ CGLIB라는 바이트코드 조작 라이브러리를 사용해서 AppConfig 클
 ![img_16.png](img_16.png)  
 * @Bean이 붙은 메서드마다 이미 스프링 빈이 존재하면 존재하느 빈을 반환하고, 스프링 빈이 없으면 생성해서 스프링 빈으로 등록하고 반환하는 코드가 동적으로 만들어진다.
 * 덕분에 싱글톤이 보장되는 것이다.
+
+
+# 컴포넌트 스캔
+
+## 컴포넌트 스캔 적용하기
+* 컴포넌트 스캔을 사용하려면 먼저 ‘@ComponentScan’을 설정 정보에 붙여주면 된다.
+* 기존의 AppConfig와는 다르게 @Bean 어노테이션을 사용하지 않는다
+
+# 참고
+현 예제에서는 @Configuration을 사용하여 수동으로 @Bean주입을 한 AppConfig 코드가 존재하기 때문에
+@ComponentScan 사용 시 중복되어 오류가 발생할 수 있는 부분을 예외처리 하기위해 ‘exloudeFilters’를 설정한다.
+
+자 그럽 필요한 각 클래스 파일에 @Component 어노테이션을 붙이도록 하자
+```
+public class AutoAppConfigTest {
+
+    @Test
+    void basicScan() {
+        AnnotationConfigApplicationContext ac = new AnnotationConfigReactiveWebApplicationContext(AutoAppConfig.class);
+
+        MemberService memberService = ac.getBean(MemberService.class);
+        Assertions.assertThat(memberService).isInstanceOf(MemberService.class);
+    }
+}
+```
+테스트 코드를 실행해보면 스캔 된 클래스 목록을 확인 할 수 있다.  
+![img_17.png](img_17.png)
+
+
+### @ComponentScan 이미지로 알아보기  
+![img_18.png](img_18.png)  
+* @ComponentScan은 @Component가 붙은 모든 클래스를 스프링빈으로 등록한다.
+* 이때 스프링빈의 기본 이름은 클래스명을 사용하되 맨 앞글자만 소문자를 사용한다.
+  * 빈 이름 기존 전략 : MemberServiceImpl > memberServiceImpl
+  * 빈 이름 직접 지정 : 만약 스프링 빈의 이름을 직접 지정하고 싶으면 @Component(“memberServiceImpl”)로 이름을 부여하면 된다.
+  
+
+### @Autowired 의존관계 주입
+![img_19.png](img_19.png)
+
+## 탐색 위치와 기본 스캔 대상
+### 탐색할 패키지의 시작 위치 지정
+모든 자바 클래스를 다 컴포넌트 스캔하면 시간이 오래 걸린다. 그래서 꼭 필요한 위치부터 탐색하도록 시작 위치를 지정할 수 있다.
+* basePackages : 탐색할 패키지의 시작 위치를 지정한다. 이패키지를 포함해서 하위 패키지를 모두 탐색한다.
+  * basePackages = {“hello.core”, “hello.service”} 이렇게 여러 시작 위치를 지정할 수 있다.
+* basePackageClasses : 지정한 클래스의 패키지를 탐색 시작 위로 지정한다.
+* 만약 지정하지 않으면 @ComponentScan이 붙은 설정 정보 클래스의 패키지가 시작 위치가 된다.
+
+## 컴포넌트 스캔 기본 대상
+컴포넌트 스캔은 @Component 뿐만 아니라 다음과 내용도 추가로 대상에 포함한다.
+* @Component : 컴포넌트 스캔에서 사용
+* @Controller : 스프링MVC 컨트롤러에서 사용
+* @Service : 스프링 비즈니스 로직에서 사용
+* @Repository : 스프링 데이터 접근 계층에서 사용
+* @Configuration : 스프링 설정 정보에서 사용
+
+해당 클래스의 소스 코드를 보면 @Component를 포함하고 있는 것을 알 수 있다.
+
+
+## 커스텀 필터 
+```
+public class ComponentFilterAppTest {
+
+    @Test
+    void filterScan() {
+        ApplicationContext ac = new AnnotationConfigApplicationContext(ComponentFilterAppConfig.class);
+        BeanA beanA = ac.getBean("beanA", BeanA.class);
+        Assertions.assertThat(beanA).isNotNull();
+
+        org.junit.jupiter.api.Assertions.assertThrows(NoSuchBeanDefinitionException.class,
+                () -> ac.getBean("beanB", BeanB.class));
+    }
+
+    @Configuration
+    @ComponentScan(
+            includeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = MyIncludeComponent.class),
+            excludeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = MyExcludeComponent.class)
+    )
+    static class ComponentFilterAppConfig {
+    }
+}
+```
+
+
+### FilterType 옵션
+* ANNOTATION : 기본값, 어노테이션을 인식해서 동작
+* ASSIGNABLE_TYPE : 지정한 타입과 자식 타입을 인식해서 동작한다.
+* ASPECTJ : AspectJ 패턴 사용
+* REGEX : 정규 표현식
+* CUSTOM : TypeFilter 이라는 인터페이스를 구현해서 처리
+
+
