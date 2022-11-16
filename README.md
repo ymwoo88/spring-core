@@ -1178,3 +1178,40 @@ Process finished with exit code 0
 - 생성자에 @Autowired를 지정하면, 스프링 컨테이너가 자동으로 빈을 찾아서 주입해준다.
 - 이때 기본 조회 전략은 타입이 같은 빈을 찾아서 주입
   - getBean(MemberRepository.class)와 동일하다고 이해하면 된다.
+
+## 탐색 위치와 기본 스캔 대상
+탐색할 패키지의 시작 위치 지정
+
+모든 자바 클래스를 다 컴포넌트 스캔하면 시간이 오래 걸린다. 그래서 꼬 ㄱ필요한 위치부터 탐색하도록 시작 위치를 지정할 수 있다.
+
+```java
+@Configuration
+@ComponentScan(
+        basePackages = {"hello.core"},
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = Configuration.class) // AppConfig파일에 @Configuration을 제외하기 위한 선언부 (중복 빈 등록 방지를 위한 작업)
+)
+public class AutoAppConfig {
+}
+```
+
+- basePackages 옵션을 사용하면 해당 구간에만 빈을 스캔 합니다.
+
+만약에! basePackages 지정하지 않으면
+
+@ComponentScan이 설정 된 파일의 위치부터 스캔을 시작한다.
+
+그래서 프로젝트 스캔이 필요한 단계에 ComponentScan의 파일을 위치하면 basePackages 설정없이도 원하는 구간에만 빈을 스캔하도록 할 수 있다.
+
+@SprintBootApplication 에 위치는 제일 상단에 위치 한다.
+
+해당 어노테이션안에 @ComponentScan이 존재한다 그래서 기본 스프링부트를 사용하게되면 아무것도 신경안쓴게 우리가 스프링빈 스캔을 사용하고 있는 것이다.
+
+컴포넌트 스캔 기본 대상
+
+그리고 각 어노테이션별로 부가 기능이 존재 합니다.
+
+- Component
+- Controller > 부가기능 : 스프링 MVC 컨트롤러로 인식
+- Service > 부가기능 : 특별한 역활은 없고 비지니스가 존재하는 정도로 인식한다.
+- Respository > 부가기능 : 스프링 데이터 접근 계층으로 인식하고, 데이터 계층의 예외를 스프링 예외로 변환해둔다.
+- Configuration > 부가기능 : 스프링 설정 정보로 인식하고, 스프링 빈이 싱글톤을 유지하도록 추가 처리를 한다.
