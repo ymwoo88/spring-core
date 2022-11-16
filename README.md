@@ -1093,3 +1093,88 @@ public class ComponentFilterAppTest {
 * CUSTOM : TypeFilter 이라는 인터페이스를 구현해서 처리
 
 
+# 섹션6 
+## 컴포넌트 스캔과 의존관계 자동 주입 시작하기
+AutoAppConfig파일을 만든 후 @ComponentScan 어노테이션을 선언합니다.
+
+```java
+@Configuration
+@ComponentScan(
+        excludeFilters = @ComponentScan.Filter(type = FilterType.ANNOTATION, classes = Configuration.class) // AppConfig파일에 @Configuration을 제외하기 위한 선언부 (중복 빈 등록 방지를 위한 작업)
+)
+public class AutoAppConfig {
+}
+```
+
+excludeFilters를 사용한 이유는 지금까지 해왔던 예제들과 충돌이 일어나서 선언한 내용입니다.
+
+(사실 상 실무에서는 잘 쓰지이 않는 옵션이오니 이건 참고만하고 넘어가도 될 듯 합니다.)
+
+그리고 빈으로 필요한 클래스를 스캔할 수 있도록 @Component 어노테이션을 붙입니다.
+
+MemoryMemberRepository @Component 추가
+
+RateDiscountPolicy @Component 추가
+
+MemberServiceImpl @Component 추가
+
+- MemberServiceImpl 안에는 MemberRepository가 주입되어야 한다. 해당 부분은 @Autowired 어노테이션을 추가하여 자동 빈 주입을 받는다
+
+테스트로 잘 구동되는지 확인해봅니다.
+
+```java
+public class AutoAppConfigTest {
+
+    @Test
+    void basicScan() {
+        AnnotationConfigApplicationContext ac = new AnnotationConfigReactiveWebApplicationContext(AutoAppConfig.class);
+
+        MemberService memberService = ac.getBean(MemberService.class);
+        Assertions.assertThat(memberService).isInstanceOf(MemberService.class);
+    }
+}
+```
+
+- AnnotationConfigApplicationContext 를 사용하는 것은 기존과 동일하다.
+- 설정 정보로 AutoAppConfig 클래스를 넘겨준다.
+- 실행해보면 기존과 ㄷ같이 잘 동작하는 것을 확인 할 수 있다.
+
+로그를 잘 보면 컴포넌트 스캔이 잘 동작하는 것을 확인 할 수 있다.
+
+```java
+19:38:26.931 [main] DEBUG org.springframework.boot.web.reactive.context.AnnotationConfigReactiveWebApplicationContext - Refreshing org.springframework.boot.web.reactive.context.AnnotationConfigReactiveWebApplicationContext@4b45a2f5
+19:38:26.943 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'org.springframework.context.annotation.internalConfigurationAnnotationProcessor'
+19:38:27.012 [main] DEBUG org.springframework.context.annotation.ClassPathBeanDefinitionScanner - Identified candidate component class: file [/Users/jeffreywoo/Workspace/spring-core/out/production/classes/hello/core/discount/RateDiscountPolicy.class]
+19:38:27.013 [main] DEBUG org.springframework.context.annotation.ClassPathBeanDefinitionScanner - Identified candidate component class: file [/Users/jeffreywoo/Workspace/spring-core/out/production/classes/hello/core/member/MemberServiceImpl.class]
+19:38:27.014 [main] DEBUG org.springframework.context.annotation.ClassPathBeanDefinitionScanner - Identified candidate component class: file [/Users/jeffreywoo/Workspace/spring-core/out/production/classes/hello/core/member/MemoryMemberRepository.class]
+19:38:27.014 [main] DEBUG org.springframework.context.annotation.ClassPathBeanDefinitionScanner - Identified candidate component class: file [/Users/jeffreywoo/Workspace/spring-core/out/production/classes/hello/core/order/OrderServiceImpl.class]
+19:38:27.075 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'org.springframework.context.event.internalEventListenerProcessor'
+19:38:27.076 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'org.springframework.context.event.internalEventListenerFactory'
+19:38:27.077 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'org.springframework.context.annotation.internalAutowiredAnnotationProcessor'
+19:38:27.077 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'org.springframework.context.annotation.internalCommonAnnotationProcessor'
+19:38:27.082 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'autoAppConfig'
+19:38:27.084 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'rateDiscountPolicy'
+19:38:27.084 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'memberServiceImpl'
+19:38:27.092 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'memoryMemberRepository'
+19:38:27.093 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Autowiring by type from bean name 'memberServiceImpl' via constructor to bean named 'memoryMemberRepository'
+19:38:27.093 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Creating shared instance of singleton bean 'orderServiceImpl'
+19:38:27.094 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Autowiring by type from bean name 'orderServiceImpl' via constructor to bean named 'memoryMemberRepository'
+19:38:27.094 [main] DEBUG org.springframework.beans.factory.support.DefaultListableBeanFactory - Autowiring by type from bean name 'orderServiceImpl' via constructor to bean named 'rateDiscountPolicy'
+Disconnected from the target VM, address: '127.0.0.1:58728', transport: 'socket'
+
+Process finished with exit code 0
+```
+
+그림으로 알아보는 스캔구조  
+![img_20.png](img_20.png)
+
+
+- @ComponentScan은 @Component가 붙은 모든 클래스를 스프링 빈으로 등록한다.
+- 이때 스프링 빈의 기본 이름은 클래스명을 사용하되 맨 앞글자만 소만자를 사용한다.
+  - 예를들면 MemberServiceImpl > memberServiceImpl 형태로 빈에 등록 된다
+
+![img_21.png](img_21.png)
+
+- 생성자에 @Autowired를 지정하면, 스프링 컨테이너가 자동으로 빈을 찾아서 주입해준다.
+- 이때 기본 조회 전략은 타입이 같은 빈을 찾아서 주입
+  - getBean(MemberRepository.class)와 동일하다고 이해하면 된다.
